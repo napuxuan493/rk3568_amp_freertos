@@ -1,11 +1,13 @@
 /* M3: core1 侧 mailbox 门铃驱动实现（见 rpmsg_mbox.h 的协议说明） */
 #include "rpmsg_mbox.h"
+#include "uart.h"        /* UART2 诊断 */
 
 void mbox_init(void)
 {
     /* 握手检测需要 A2B_INTEN（否则 STATUS 不锁存）；检测后立即关闭
      * （门铃中断在 core3 上触发 EC=0 异常），数据流改用 vring 轮询。 */
     MBOX_REG(MBOX_A2B_INTEN) |= (1u << MBOX_A2B_CHAN);
+    uart_puts("[RPMsg] mbox initialized\r\n");
 }
 
 uint32_t mbox_read_doorbell(uint32_t *data)

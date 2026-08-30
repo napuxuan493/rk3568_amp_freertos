@@ -35,7 +35,7 @@ cp amp.img /tmp/xfer/
 mkdir -p /tmp/xfer && cp amp.img /tmp/xfer/
 cd /tmp/xfer && python3 -m http.server 8000 &
 # 验证（用 PC 当前 IP，不是旧 IP！）：
-curl --noproxy '*' -s http://192.168.1.110:8000/amp.img -o /dev/null -w "%{http_code}\n"   # 应 200
+curl --noproxy '*' -s http://10.164.40.210:8000/amp.img -o /dev/null -w "%{http_code}\n"   # 应 200
 ```10.164.40.210
 
 ## 三、板内下载 + 烧录（PC 串口操作）
@@ -45,7 +45,7 @@ curl --noproxy '*' -s http://192.168.1.110:8000/amp.img -o /dev/null -w "%{http_
 stty -F /dev/ttyUSB0 1500000 raw -echo
 
 # ② 通过串口 shell 让板子执行（用 read_console 助手或直接敲）：
-#    wget -q -T 8 http://192.168.1.110:8000/amp.img -O /tmp/amp.img
+#    wget -q -T 8 http://10.164.40.19:8000/amp.img -O /tmp/amp.img
 #    md5sum /tmp/amp.img          ← 必须和 PC 端 md5 一致
 #    dd if=/tmp/amp.img of=/dev/mmcblk0p7 bs=512 conv=fsync && sync
 #    reboot
@@ -57,7 +57,7 @@ stty -F /dev/ttyUSB0 1500000 raw -echo
 stty -F /dev/ttyUSB0 1500000 raw -echo
 read_console() { timeout 20 cat /dev/ttyUSB0 > /tmp/c.txt & local pid=$!; sleep 1
   printf '\n%s\n' "$1" > /dev/ttyUSB0; sleep 18; kill $pid 2>/dev/null; cat /tmp/c.txt; }
-read_console 'wget -q -T 8 http://192.168.1.110:8000/amp.img -O /tmp/amp.img && md5sum /tmp/amp.img && dd if=/tmp/amp.img of=/dev/mmcblk0p7 bs=512 conv=fsync 2>&1 | tail -1 && sync && echo FLASH_OK'
+read_console 'wget -q -T 8 http://10.164.40.19:8000/amp.img -O /tmp/amp.img && md5sum /tmp/amp.img && dd if=/tmp/amp.img of=/dev/mmcblk0p7 bs=512 conv=fsync 2>&1 | tail -1 && sync && echo FLASH_OK'
 ```
 
 ## 四、重启验证

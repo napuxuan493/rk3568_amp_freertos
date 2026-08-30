@@ -30,12 +30,34 @@ static void vTask1(void *pvParameters)
 {
     (void)pvParameters;
     TickType_t xLastWake = xTaskGetTickCount();
+    uint32_t active_tx_count = 0;
     for (;;) {
-        xQueueSend(q, &xLastWake,10);  /* 发送当前 tick 给任务2 */
-        uart_puts("[t1] :tick from task1：");
-        uart_putdec((uint32_t)xLastWake);
-        uart_puts("\r\n");
-         vTaskDelayUntil(&xLastWake, pdMS_TO_TICKS(1000));   /* 绝对周期，不累积漂移 */
+        /* 原本的存活打印，证明任务在跑 */
+        uart_puts("[t1] :tick from task1\r\n");
+
+        /* ── 新增：主动发送逻辑 ── */
+        /* 必须确保已经握手成功，且获取到了 Linux 端的端点地址 */
+        if (rpmsg_ready && rpmsg_have_linux_ept()) {
+            char msg[64];
+            int i;
+            const char prefix[] = "Active msg from FreeRTOS: ";
+            
+            /* 简单组装一个字符串，不使用耗时的 sprintf */
+            for (i = 0; i < sizeof(prefix) - 1; i++) {
+                msg[i] = prefix[i];
+            }
+            msg[i++] = 'A' + (active_tx_count % 26); /* 附加一个变化字母 */
+            msg[i++] = '\0';
+
+            /* 向 Linux 端发送 */
+            if (rpmsg_send(rpmsg_linux_ept(), msg, i) > 0) {
+                uart_diag_mark("Task1 TX OK");
+            }
+            active_tx_count++;
+        }
+
+        /* 每 2 秒主动发一次 */
+        vTaskDelayUntil(&xLastWake, pdMS_TO_TICKS(2000));   
     }
     // (void)pvParameters;
     // for (;;) {
@@ -80,88 +102,23 @@ static uint16_t tx_last_avail = 0; /* 如果需要处理 TX 回调 */
 static void vRpmsgTask(void *pvParameters)
 {
     (void)pvParameters;
-    TickType_t xLastWake = xTaskGetTickCount();
 
-    uart_diag_mark("R1 waiting handshake");
+    /* 改用 UART4 打印，让你能在主终端直接看到进度！ */
+    uart_puts("[RPMsg] Waiting Linux handshake...\r\n"); 
+    
     if (rpmsg_init() < 0) {
-        uart_diag_puts("[rpmsg] init failed, poll retry\r\n");
+        uart_puts("[RPMsg] init failed\r\n");
     } else {
-        uart_diag_mark("R2 ready");
+        uart_puts("[RPMsg] Handshake OK, entering loop\r\n");
     }
 
     for (;;) {
-        // rpmsg_poll();               /* 处理 A2B 门铃 + 收 vq1 消息（含回显） */
-
-
-        /* 1. 初始化队列视图 (内存地址和布局完全对齐你的宏) */
-    vring_init(&tx_vr, VQ0_BASE);
-    vring_init(&rx_vr, VQ1_BASE);
-
-    /* 2. 告诉 Linux 我们准备好了 (可选：触发一次门铃，让 Linux 知道 slave 上线了) */
-    // mbox_send_doorbell();
-
-    /* 3. 进入事件驱动的死循环 */
-    while (1) {
-        /* 死等 Mailbox ISR 发来的唤醒通知 (参数 pdTRUE = 唤醒后清零通知状态) */
+        /* 1. 死等 222 号中断 (Mailbox A2B 通道 3) 唤醒 */
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        /* 
-         * 醒来了！这说明 Linux 敲响了 222 号中断门铃。
-         * 核心逻辑：必须用 while 循环“榨干” avail 队列，防遗漏！
-         */
-        uint16_t desc_idx;
-        
-        while (vring_get_avail(&rx_vr, &rx_last_avail, &desc_idx) == 0) {
-            
-            /* 拿到缓冲区的物理地址，准备读数据 */
-            struct vring_desc *desc = &rx_vr.desc[desc_idx];
-            void *payload = (void *)desc->addr;
-            uint32_t payload_len = desc->len;
-            
-            /* [业务逻辑]：处理收到的 RPMsg 数据... */
-            // process_rpmsg(payload, payload_len);
-
-            /* 消费完毕，把缓冲区块归还给 used 队列 */
-            vring_put_used(&rx_vr, desc_idx, payload_len);
-        }
-
-        /* 
-         * 当 while 循环退出，说明 rx 队列彻底空了。
-         * 此时敲响 TX 门铃，通知 Linux 去读 used 队列回收内存！
-         */
-        mbox_kick(); /* 往 0 号通道发门铃中断 (218) */
-    }
-
-        // /* 每秒发一条 "hello" 给 Linux（演示 core1→Linux 方向） */
-        // if (rpmsg_ready) {
-        //     char msg[32];
-        //     int n;
-        //     for (n = 0; n < 32; n++) msg[n] = 0;
-        //     /* "hello from core1: N" */
-        //     {
-        //         static const char p[] = "hello from core1: ";
-        //         int i;
-        //         for (i = 0; i < (int)sizeof(p) - 1 && i < 16; i++)
-        //             msg[i] = p[i];
-        //         {
-        //             uint32_t v = rpmsg_tx_count++;
-        //             char buf[12];
-        //             int j = 0;
-        //             if (v == 0) { buf[j++] = '0'; }
-        //             else { char tmp[12]; int k = 0;
-        //                    while (v) { tmp[k++] = '0' + (v % 10); v /= 10; }
-        //                    while (k) buf[j++] = tmp[--k]; }
-        //             for (int i = 0; i < j && 16 + i < 31; i++)
-        //                 msg[16 + i] = buf[i];
-        //         }
-        //     }
-        //     /* 需要知道 Linux ept 地址；还没学到就跳过（握手后 Linux 会先发） */
-        //     if (rpmsg_have_linux_ept()) {
-        //         if (rpmsg_send(rpmsg_linux_ept(), msg, 24) > 0)
-        //             uart_diag_mark("R3 tx ok");
-        //     }
-        // }
-        vTaskDelayUntil(&xLastWake, pdMS_TO_TICKS(1000));
+        /* 2. 醒来后，直接调用 rpmsg_core.c 里的协议层轮询函数。
+         * 它内部会自动榨干 vq1，剥离 RPMsg 协议头，调用 rpmsg_on_recv 回显，并踢 TX 门铃 */
+        rpmsg_poll(); 
     }
 }
 
@@ -251,8 +208,8 @@ void main(void)
                       task1_stack, &task1_tcb);
     xTaskCreateStatic(vTask2, "t2", configMINIMAL_STACK_SIZE * 2, NULL,1,
                       task2_stack, &task2_tcb);
-    xTaskCreateStatic(vRpmsgTask, "rpmsg", configMINIMAL_STACK_SIZE * 2, NULL,2,
-                      rpmsg_task_stack, &rpmsg_task_tcb);
+    // xTaskCreateStatic(vRpmsgTask, "rpmsg", configMINIMAL_STACK_SIZE * 2, NULL,2,
+    //                   rpmsg_task_stack, &rpmsg_task_tcb);
     xRpmsgTaskHandle = xTaskCreateStatic(
         vRpmsgTask,           /* 任务执行的函数入口 */
         "RPMsgTask",          /* 任务名字 */
