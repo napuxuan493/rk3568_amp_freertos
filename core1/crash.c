@@ -31,16 +31,18 @@ void abort_handler(void)
     __asm volatile("mrs %0, esr_el1" : "=r"(esr));
     __asm volatile("mrs %0, far_el1" : "=r"(far));
 
-    exc_puts("\r\n[EXC] sp=");
-    exc_hex(sp);
-    exc_puts(" elr=");
-    exc_hex(elr);
-    exc_puts("\r\n      esr=");
-    exc_hex(esr);
-    exc_puts(" far=");
-    exc_hex(far);
-    exc_puts("\r\n");
+    /* 直接使用你已写好的 UART4 打印函数！ */
+    uart_puts("\r\n[FATAL EXC] sp=");
+    uart_puthex(sp);
+    uart_puts(" elr=");
+    uart_puthex(elr);
+    uart_puts("\r\n      esr=");
+    uart_puthex(esr);
+    uart_puts(" far=");
+    uart_puthex(far);
+    uart_puts("\r\n");
 
+    /* 死循环锁死 */
     for (;;)
         ;
 }
