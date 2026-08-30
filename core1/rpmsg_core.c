@@ -110,16 +110,21 @@ static int rpmsg_wait_handshake(void)
 
     *(volatile uint64_t *)(MY_GICD_BASE + 0x6000 + 222 * 8) = 0x300ULL;        /* 路由给 Core 3 */
     *(volatile uint32_t *)(MY_GICD_BASE + 0x0080 + mbox_idx * 4) |= (1u << mbox_bit); /* 分配 Group 1 */
-    
-    uint32_t cfg_reg = MY_GICD_BASE + 0x0C00 + (222 / 16) * 4;
-    uint32_t cfg_bit = (222 % 16) * 2;
-    *(volatile uint32_t *)cfg_reg &= ~(0x3u << cfg_bit);                       /* 电平触发 */
+                                           
 
-    uint32_t pri_reg = MY_GICD_BASE + 0x0400 + (222 / 4) * 4;
+    /* 修改前：uint32_t cfg_reg = MY_GICD_BASE + 0x0C00 + (222 / 16) * 4; */
+    /* 修改后：*/
+    uintptr_t cfg_reg = MY_GICD_BASE + 0x0C00 + (222 / 16) * 4;
+    uint32_t cfg_bit = (222 % 16) * 2;
+    *(volatile uint32_t *)cfg_reg &= ~(0x3u << cfg_bit);                /* 电平触发 */
+
+    /* 修改前：uint32_t pri_reg = MY_GICD_BASE + 0x0400 + (222 / 4) * 4; */
+    /* 修改后：*/
+    uintptr_t pri_reg = MY_GICD_BASE + 0x0400 + (222 / 4) * 4;
     uint32_t pri_lane = (222 % 4) * 8;
     uint32_t v = *(volatile uint32_t *)pri_reg;
     v = (v & ~(0xFFu << pri_lane)) | (0xE0u << pri_lane);
-    *(volatile uint32_t *)pri_reg = v;                                         /* 设优先级 0xE0 */
+    *(volatile uint32_t *)pri_reg = v;              /* 设优先级 0xE0 */
 
     *(volatile uint32_t *)(MY_GICD_BASE + 0x0100 + mbox_idx * 4) |= (1u << mbox_bit); /* GIC 使能 */
 
