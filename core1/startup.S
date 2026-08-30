@@ -88,7 +88,8 @@ _freertos_vector_table:
 ignore_async:
     /* M3(8/26)：门铃后的首个内存访问触发 EC=0 异常，若 eret 回同一指令会
      * 无限重触发。把 ELR 前进 4 字节跳过该指令再返回。 */
-    mrs     x0, elr_el1
+    /*mrs     x0, elr_el1
     add     x0, x0, #4
     msr     elr_el1, x0
-    eret
+    eret*/
+    b   abort_handler
