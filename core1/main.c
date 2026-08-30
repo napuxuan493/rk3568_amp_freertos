@@ -190,7 +190,7 @@ static StaticTask_t xRpmsgTaskTCB;
 void main(void)
 {
     /* 探针2：main 到达标记（0x7002010，"MAIN"） */
-    *(volatile uint32_t *)0x7002010UL = 0x4E49414DUL;
+    // *(volatile uint32_t *)0x7002010UL = 0x4E49414DUL;
 
     uart_init();
     uart_diag();                    /* M2.2 诊断：UART2 打印 UART4 配置 */

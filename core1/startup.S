@@ -17,10 +17,10 @@ _start:
     isb
 
     /* ★ 探针1：_start 到达标记（此时 cache 已关，写直达 DRAM，Linux 可读回） */
-    ldr     x0, =0x7002000
-    movz    x1, #0x4F43
-    movk    x1, #0x4552, lsl #16   /* x1 = 0x45524F43 → 内存字节 "CORE" */
-    str     w1, [x0]
+    //ldr     x0, =0x7002000
+    //movz    x1, #0x4F43
+    //movk    x1, #0x4552, lsl #16   /* x1 = 0x45524F43 → 内存字节 "CORE" */
+    //str     w1, [x0]
 
     /* 2. 初始化栈（链接脚本末尾 _stack_top，32KB） */
     ldr     x0, =_stack_top
