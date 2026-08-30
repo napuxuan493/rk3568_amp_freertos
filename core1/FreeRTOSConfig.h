@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include "uart.h"
 
+/* 告诉 FreeRTOS 底层 port.c：我们使用的是 GICv3 硬件中断控制器 */
+#define GICv3_PRESENT    1
 /*-----------------------------------------------------------
  * 时钟与 tick
  *-----------------------------------------------------------*/
@@ -101,5 +103,6 @@ void vApplicationIRQHandler(uint32_t ulICCIAR);
 /* 兼容旧宏 */
 #define configKERNEL_INTERRUPT_PRIORITY         15
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY    12
+
 
 #endif /* FREERTOS_CONFIG_H */

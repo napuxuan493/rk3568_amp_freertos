@@ -46,7 +46,7 @@ static inline void gic_write32(uintptr_t addr, uint32_t val)
 
 void gic_init(void)
 {
-    uint32_t v, ppi;
+    uint32_t v;
 
     /* 1. GICD：使能 Group1（非安全组）。EL1 非安全视角只有 bit1 可写 */
     v = gic_read32(GICD_CTLR);

@@ -43,7 +43,7 @@ static void vTask1(void *pvParameters)
             const char prefix[] = "Active msg from FreeRTOS: ";
             
             /* 简单组装一个字符串，不使用耗时的 sprintf */
-            for (i = 0; i < sizeof(prefix) - 1; i++) {
+            for (i = 0; i < (int)(sizeof(prefix) - 1); i++) {
                 msg[i] = prefix[i];
             }
             msg[i++] = 'A' + (active_tx_count % 26); /* 附加一个变化字母 */
@@ -88,16 +88,12 @@ static void vTask2(void *pvParameters)
 static StackType_t idle_task_stack[configMINIMAL_STACK_SIZE];
 static StaticTask_t idle_task_tcb;
 
-/* ── M3: rpmsg 任务（mailbox 轮询 + vring 收发 + 周期发送） ── */
-static StackType_t rpmsg_task_stack[configMINIMAL_STACK_SIZE * 2];
-static StaticTask_t rpmsg_task_tcb;
-static uint32_t rpmsg_tx_count;
 
-/* 声明队列对象和本地游标 */
-static struct vring rx_vr;       /* 对应 VQ1 (接收队列) */
-static struct vring tx_vr;       /* 对应 VQ0 (发送队列) */
-static uint16_t rx_last_avail = 0;
-static uint16_t tx_last_avail = 0; /* 如果需要处理 TX 回调 */
+// /* 声明队列对象和本地游标 */
+// static struct vring rx_vr;       /* 对应 VQ1 (接收队列) */
+// static struct vring tx_vr;       /* 对应 VQ0 (发送队列) */
+// static uint16_t rx_last_avail = 0;
+// static uint16_t tx_last_avail = 0; /* 如果需要处理 TX 回调 */
 
 static void vRpmsgTask(void *pvParameters)
 {

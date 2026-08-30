@@ -155,7 +155,7 @@ static int rpmsg_ns_announce(void)
 {
     const struct rpmsg_ns_msg *nsm = &nsm_const;
     uintptr_t buf;
-    uint32_t desc_idx;
+    uint16_t desc_idx;
     int i;
 
 
@@ -208,7 +208,7 @@ int rpmsg_init(void)
 int rpmsg_send(uint32_t dst, const void *data, uint16_t len)
 {
     uintptr_t buf;
-    uint32_t desc_idx;
+    uint16_t desc_idx;
     int i;
 
     if (len > RPMSG_PAYLOAD_MAX)
@@ -259,7 +259,7 @@ void rpmsg_on_recv(uint32_t src, const void *payload, uint16_t len)
 static void rpmsg_handle_vq1(void)
 {
     uintptr_t buf;
-    uint32_t desc_idx;
+    uint16_t desc_idx;
 
     while (vq_take_buffer(&vq1, &vq1_last_avail, &buf, &desc_idx) == 0) {
         struct rpmsg_hdr *hdr = (struct rpmsg_hdr *)buf;

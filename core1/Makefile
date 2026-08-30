@@ -13,7 +13,7 @@ FREERTOS := freertos-kernel
 PORT     := $(FREERTOS)/portable/GCC/ARM_CA53_64_BIT
 
 CFLAGS  := -O2 -g -Wall -Wextra -ffreestanding -fno-builtin -fno-stack-protector -nostdlib \
-           -I. -I$(FREERTOS)/include -I$(PORT) -DGUEST
+           -I. -I$(FREERTOS)/include -I$(PORT) -DGICv3_PRESENT=1
 LDFLAGS := -nostdlib -T link.ld
 
 SRCS := startup.S uart.c main.c gic.c timer.c crash.c libc_min.c \
