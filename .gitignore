@@ -1,0 +1,22 @@
+# ── 编译产物 ─────────────────────────────
+*.o
+*.elf
+*.bin
+*.img
+*.a
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.cmd
+*.symvers
+*.order
+
+# ── 生成的可执行/测试文件 ────────────────
+core1/loader/loader
+core1/loader/loader_static
+
+# ── 系统/编辑器 ─────────────────────────
+*~
+.DS_Store
+*.swp

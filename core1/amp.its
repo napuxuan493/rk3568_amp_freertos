@@ -1,0 +1,31 @@
+/dts-v1/;
+
+/ {
+	description = "RK3568 AMP firmware (M2.2)";
+	#address-cells = <1>;
+
+	images {
+		core1 {
+			description = "core1-freertos";
+			data = /incbin/("/home/na/rk3568_amp/core1/core1.bin");
+			data-size = <0x20000>;   /* M2.2: 固件实际占用到 0x7016760(92KB)，64KB 保留不够会被 u-boot 踩掉 */
+			type = "firmware";
+			arch = "arm64";
+			compression = "none";
+			load = <0x07000000>;
+			entry = <0x07000000>;
+			cpu = <0x300>;
+			boot-on = <1>;
+			hyp = <0>;
+			thumb = <0>;
+		};
+	};
+
+	configurations {
+		default = "conf";
+		conf {
+			description = "amp conf";
+			loadables = "core1";
+		};
+	};
+};
