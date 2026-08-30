@@ -10,8 +10,8 @@ volatile int rpmsg_ready = 0;
 
 static struct vring vq0;   /* core1 发送（Linux rvq） */
 static struct vring vq1;   /* core1 接收（Linux svq） */
-static uint32_t vq0_last_avail;   /* 本地消费游标 */
-static uint32_t vq1_last_avail;
+static uint16_t vq0_last_avail;   /* 必须是 16 位 */
+static uint16_t vq1_last_avail;   /* 必须是 16 位 */
 
 static uint32_t linux_ept_addr;   /* 从第一条消息 hdr.src 学习 */
 static volatile int have_linux_ept;
@@ -20,10 +20,10 @@ int rpmsg_have_linux_ept(void) { return have_linux_ept; }
 uint32_t rpmsg_linux_ept(void) { return linux_ept_addr; }
 
 /* 从 vq 的 avail 取一个缓冲，返回缓冲物理地址（-1 无） */
-static int vq_take_buffer(struct vring *vr, uint32_t *last_avail,
-                          uintptr_t *buf_phys, uint32_t *desc_idx)
+static int vq_take_buffer(struct vring *vr, uint16_t *last_avail,
+                          uintptr_t *buf_phys, uint16_t *desc_idx)
 {
-    uint32_t idx;
+    uint16_t idx;  /* 修改：从 uint32_t 改为 uint16_t */
 
     if (vring_get_avail(vr, last_avail, &idx) < 0)
         return -1;
@@ -54,7 +54,7 @@ static int vq_take_buffer(struct vring *vr, uint32_t *last_avail,
 //     vq0_last_avail = 0;
 //     vq1_last_avail = 0;
 
-//     uart_diag_puts("[rpmsg] handshake OK\r\n");
+//     uart_puts("[rpmsg] handshake OK\r\n");
 //     uart_diag_u64("ST", MBOX_REG(MBOX_A2B_STATUS));   /* 诊断：STATUS 读回 */
 
 //     /* 诊断：握手后立即探测 vring 共享内存可读性 */
@@ -82,7 +82,7 @@ static int vq_take_buffer(struct vring *vr, uint32_t *last_avail,
 //     vq0_last_avail = 0;
 //     vq1_last_avail = 0;
 
-//     uart_diag_puts("[rpmsg] handshake OK\r\n");
+//     uart_puts("[rpmsg] handshake OK\r\n");
 
 //     /* 诊断：握手后立即探测 vring 共享内存可读性 */
 //     uart_diag_u64("VRING0", *(volatile uint32_t *)VQ0_BASE);
@@ -96,35 +96,36 @@ static int rpmsg_wait_handshake(void)
 {
     uart_puts("[RPMsg] Polling for Linux handshake...\r\n");
 
-    /* 1. 采用延时轮询 A2B_STATUS，躲开 Linux 启动期间的 GIC 硬件重置。
-     * 此时哪怕 Linux 把 222 中断关了也没关系，硬件状态位始终都在。 */
+    /* 1. 采用延时轮询，躲避 Linux 启动期间的 GIC 硬件重置 */
     while (!mbox_has_doorbell()) {
-        vTaskDelay(pdMS_TO_TICKS(50)); // 让出 CPU，保证 task1 的 tick 正常打印
+        vTaskDelay(pdMS_TO_TICKS(50)); 
     }
 
     uart_puts("[RPMsg] Doorbell arrived! Re-configuring IRQ 222...\r\n");
 
-    /* 2. 此时 Linux 已经完全启动完毕！它不会再重置 GIC 了。
-     * 就在此时，我们重新使能 Mailbox 并“劫持” 222 号中断！ */
-    
-    /* (a) 重新使能 Mailbox A2B 硬件中断 */
-    mbox_init(); 
-
-    /* (b) 重新补发被 Linux 抹掉的 GIC 222 号中断配置 
-     * (请确认下方的 GICD_BASE 和你的 gic_init 里保持一致，RK3568通常是 0xFD400000) */
-    #define GICD_BASE 0xFD400000UL 
+    /* 2. 【最关键的交换】必须先完整配置 GIC，再开启 Mailbox！ */
+    #define MY_GICD_BASE 0xFD400000UL 
     uint32_t mbox_idx = 222 / 32;
     uint32_t mbox_bit = 222 % 32;
 
-    /* 重新路由给 Core 3 */
-    *(volatile uint64_t *)(GICD_BASE + 0x6000 + 222 * 8) = 0x300ULL;
-    /* 重新分配到 Group 1 */
-    *(volatile uint32_t *)(GICD_BASE + 0x0080 + mbox_idx * 4) |= (1u << mbox_bit);
-    /* 重新使能该中断 */
-    *(volatile uint32_t *)(GICD_BASE + 0x0100 + mbox_idx * 4) |= (1u << mbox_bit);
+    *(volatile uint64_t *)(MY_GICD_BASE + 0x6000 + 222 * 8) = 0x300ULL;        /* 路由给 Core 3 */
+    *(volatile uint32_t *)(MY_GICD_BASE + 0x0080 + mbox_idx * 4) |= (1u << mbox_bit); /* 分配 Group 1 */
+    
+    uint32_t cfg_reg = MY_GICD_BASE + 0x0C00 + (222 / 16) * 4;
+    uint32_t cfg_bit = (222 % 16) * 2;
+    *(volatile uint32_t *)cfg_reg &= ~(0x3u << cfg_bit);                       /* 电平触发 */
 
-    /* 3. 清除这第一声握手门铃的硬件状态，为后续的纯中断模式扫清障碍 */
-    MBOX_REG(MBOX_A2B_STATUS) = (1u << MBOX_A2B_CHAN);
+    uint32_t pri_reg = MY_GICD_BASE + 0x0400 + (222 / 4) * 4;
+    uint32_t pri_lane = (222 % 4) * 8;
+    uint32_t v = *(volatile uint32_t *)pri_reg;
+    v = (v & ~(0xFFu << pri_lane)) | (0xE0u << pri_lane);
+    *(volatile uint32_t *)pri_reg = v;                                         /* 设优先级 0xE0 */
+
+    *(volatile uint32_t *)(MY_GICD_BASE + 0x0100 + mbox_idx * 4) |= (1u << mbox_bit); /* GIC 使能 */
+
+    /* 3. 此时 GIC 已就绪。开启 Mailbox A2B 硬件中断！
+     * 这句执行后，将瞬间触发正常 IRQ 222，进入 ISR 清除状态并唤醒任务，完美避开异常！ */
+    mbox_init(); 
 
     /* 4. Linux 刚 memset 了 vring，core1 重建视图并重置游标 */
     vring_init(&vq0, VQ0_BASE);
@@ -178,29 +179,20 @@ static int rpmsg_ns_announce(void)
         return -1;
     uart_diag_mark("NS-E post-kick");
 
-    uart_diag_puts("[rpmsg] NS announced\r\n");
+    uart_puts("[rpmsg] NS announced\r\n");
     return 0;
 }
 
 int rpmsg_init(void)
 {
-    uint32_t dbg_daif = 0;
-    /* M3 实测(8/26)：A2B 门铃锁存时，给 core3 的中断线路会触发一个
-     * 异步 SError（外部中止）把 core1 打崩。core1 不用 SError，屏蔽 A 位
-     * 忽略之（DAIFSET #2 = 置 A = 屏蔽异步中止）。 */
-    // __asm volatile("msr daifset, #0xa" ::: "memory");   /* 置 A(异步中止)+F(FIQ) *///错误！！！
-    __asm volatile("msr daifset, #0x5" ::: "memory");   /* 正确屏蔽 A 和 F，放行 I(IRQ) */
-    __asm volatile("mrs x1, daif" ::: "memory");
-    __asm volatile("mov %0, x1" : "=r"(dbg_daif));
-    uart_diag_u64("DAIF", dbg_daif);
-
-    mbox_init();    /* 开 A2B_INTEN，否则 Linux 的门铃 STATUS 不锁存 */
+    /* 【删除所有的 msr daifset 汇编，解除 IRQ 屏蔽】 */
+    /* 【删除 mbox_init() 的调用，因为它已经移到了 handshake 里面】 */
 
     if (rpmsg_wait_handshake() < 0)
         return -1;
 
     if (rpmsg_ns_announce() < 0) {
-        uart_diag_puts("[rpmsg] NS announce failed\r\n");
+        uart_puts("[rpmsg] NS announce failed\r\n");
         return -1;
     }
 
@@ -254,7 +246,7 @@ void rpmsg_on_recv(uint32_t src, const void *payload, uint16_t len)
     /* 回显：把收到的内容原样发回去（Linux test 驱动 ping-pong） */
     if (len > 0 && len <= RPMSG_PAYLOAD_MAX) {
         rpmsg_send(src, payload, len);
-        uart_diag_puts("[rpmsg] echo\r\n");
+        uart_puts("[rpmsg] echo\r\n");
     }
 }
 
