@@ -162,12 +162,24 @@ static int rpmsg_ns_announce(void)
     uint16_t desc_idx;
     int i;
 
-
-    uart_diag_mark("NS-A pre-take");
-    if (vq_take_buffer(&vq0, &vq0_last_avail, &buf, &desc_idx) < 0)
+    uart_puts("[RPMsg] NS-A: taking buffer...\r\n");
+    if (vq_take_buffer(&vq0, &vq0_last_avail, &buf, &desc_idx) < 0) {
+        uart_puts("[RPMsg] NS-A: no buffer available\r\n");
         return -1;
-    uart_diag_u64("NS-B buf", buf);
+    }
+    
+    /* 打印取到的物理地址，看看 Linux 到底给分配到了哪里！ */
+    uart_puts("[RPMsg] NS-B: got buf addr=");
+    uart_puthex(buf);
+    uart_puts("\r\n");
 
+    /* 紧急刹车防撞墙：如果地址是 0 或者极其离谱，绝对不能往下写！ */
+    if (buf < 0x01000000 || buf > 0x80000000) {
+        uart_puts("[FATAL] Invalid buffer address! Aborting write to prevent SError!\r\n");
+        return -1;
+    }
+
+    uart_puts("[RPMsg] NS-C: Writing header...\r\n");
     {
         struct rpmsg_hdr *hdr = (struct rpmsg_hdr *)buf;
         hdr->src = 0;                  /* NS 消息 src 用 0 */
@@ -175,20 +187,17 @@ static int rpmsg_ns_announce(void)
         hdr->reserved = 0;
         hdr->len = sizeof(*nsm);
         hdr->flags = 0;
-        /* 拷贝 payload（从 .rodata 常量读，不写栈） */
+        /* 拷贝 payload */
         for (i = 0; i < (int)sizeof(*nsm); i++)
             ((uint8_t *)hdr->data)[i] = ((const uint8_t *)nsm)[i];
     }
 
-    uart_diag_mark("NS-C pre-used");
-    /* 放入 used ring 并踢门铃 */
+    uart_puts("[RPMsg] NS-D: Putting used & Kick...\r\n");
     vring_put_used(&vq0, desc_idx, RPMSG_HDR_SIZE + (uint32_t)sizeof(*nsm));
-    uart_diag_mark("NS-D pre-kick");
     if (mbox_kick() < 0)
         return -1;
-    uart_diag_mark("NS-E post-kick");
 
-    uart_puts("[rpmsg] NS announced\r\n");
+    uart_puts("[rpmsg] NS announced successfully!\r\n");
     return 0;
 }
 
