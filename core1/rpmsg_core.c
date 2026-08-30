@@ -96,43 +96,47 @@ static int rpmsg_wait_handshake(void)
 {
     uart_puts("[RPMsg] Polling for Linux handshake...\r\n");
 
-    /* 1. 采用延时轮询，躲避 Linux 启动期间的 GIC 硬件重置 */
+    /* 1. 必须先开启门铃使能！否则 A2B_STATUS 永远不会锁存 Linux 发来的门铃！
+     * 不用担心此时触发 FIQ 导致系统崩溃，因为 CPU 的 PSTATE 已经屏蔽了 FIQ (DAIF=0x140)。 */
+    mbox_init(); 
+
+    /* 2. 轮询等待 Linux 启动并发送第一声门铃 */
     while (!mbox_has_doorbell()) {
         vTaskDelay(pdMS_TO_TICKS(50)); 
     }
 
     uart_puts("[RPMsg] Doorbell arrived! Re-configuring IRQ 222...\r\n");
 
-    /* 2. 【最关键的交换】必须先完整配置 GIC，再开启 Mailbox！ */
+    /* 3. 此时 Linux 已经完全启动完毕，它对 GIC 的重置已经结束。
+     * 我们现在“亡羊补牢”，把 222 号中断配置为正常的 RTOS 优先级中断！ */
     #define MY_GICD_BASE 0xFD400000UL 
     uint32_t mbox_idx = 222 / 32;
     uint32_t mbox_bit = 222 % 32;
 
-    *(volatile uint64_t *)(MY_GICD_BASE + 0x6000 + 222 * 8) = 0x300ULL;        /* 路由给 Core 3 */
-    *(volatile uint32_t *)(MY_GICD_BASE + 0x0080 + mbox_idx * 4) |= (1u << mbox_bit); /* 分配 Group 1 */
-                                           
-
-    /* 修改前：uint32_t cfg_reg = MY_GICD_BASE + 0x0C00 + (222 / 16) * 4; */
-    /* 修改后：*/
+    /* (a) 重新路由给 Core 3 (MPIDR=0x300) */
+    *(volatile uint64_t *)(MY_GICD_BASE + 0x6000 + 222 * 8) = 0x300ULL;
+    
+    /* (b) 分配到 Non-Secure Group 1 (这是能让它转化为正常 IRQ 的关键) */
+    *(volatile uint32_t *)(MY_GICD_BASE + 0x0080 + mbox_idx * 4) |= (1u << mbox_bit);
+    
+    /* (c) 配置为电平触发 */
     uintptr_t cfg_reg = MY_GICD_BASE + 0x0C00 + (222 / 16) * 4;
     uint32_t cfg_bit = (222 % 16) * 2;
-    *(volatile uint32_t *)cfg_reg &= ~(0x3u << cfg_bit);                /* 电平触发 */
+    *(volatile uint32_t *)cfg_reg &= ~(0x3u << cfg_bit);
 
-    /* 修改前：uint32_t pri_reg = MY_GICD_BASE + 0x0400 + (222 / 4) * 4; */
-    /* 修改后：*/
+    /* (d) 配置优先级为 0xE0，符合 FreeRTOS 的特权检查要求 */
     uintptr_t pri_reg = MY_GICD_BASE + 0x0400 + (222 / 4) * 4;
     uint32_t pri_lane = (222 % 4) * 8;
     uint32_t v = *(volatile uint32_t *)pri_reg;
     v = (v & ~(0xFFu << pri_lane)) | (0xE0u << pri_lane);
-    *(volatile uint32_t *)pri_reg = v;              /* 设优先级 0xE0 */
+    *(volatile uint32_t *)pri_reg = v;
 
-    *(volatile uint32_t *)(MY_GICD_BASE + 0x0100 + mbox_idx * 4) |= (1u << mbox_bit); /* GIC 使能 */
+    /* (e) 重新使能 GIC 222 中断！
+     * 【高能预警】这一句执行完，GIC 发现门铃电平依然是高的，会瞬间触发正常 IRQ 222 
+     * 打断当前函数！进入 ISR 清除 A2B_STATUS，并发送 Task Notification！ */
+    *(volatile uint32_t *)(MY_GICD_BASE + 0x0100 + mbox_idx * 4) |= (1u << mbox_bit);
 
-    /* 3. 此时 GIC 已就绪。开启 Mailbox A2B 硬件中断！
-     * 这句执行后，将瞬间触发正常 IRQ 222，进入 ISR 清除状态并唤醒任务，完美避开异常！ */
-    mbox_init(); 
-
-    /* 4. Linux 刚 memset 了 vring，core1 重建视图并重置游标 */
+    /* 4. 从 ISR 回来后，Linux 已经准备好了，重置 vring 视图 */
     vring_init(&vq0, VQ0_BASE);
     vring_init(&vq1, VQ1_BASE);
     vq0_last_avail = 0;
