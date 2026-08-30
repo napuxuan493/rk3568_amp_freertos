@@ -52,9 +52,19 @@
 #define configUSE_TICK_HOOK                 0
 #define configCHECK_FOR_STACK_OVERFLOW      2
 /* configASSERT 打 UART2 调试口（uart_diag_puts），避免 UART4 上看不到 */
-#define configASSERT(x)  do { \
+/* 替换 FreeRTOSConfig.h 中的 configASSERT */
+#define configASSERT(x) \
+    do { \
         if (!(x)) { \
-            uart_diag_puts("\r\n[FATAL] ASSERT: " #x "\r\n"); \
+            /* 禁用中断，防止被打断 */ \
+            __asm volatile("msr daifset, #3" ::: "memory"); \
+            uart_puts("\r\n[FATAL] ASSERT FAILED!\r\n"); \
+            uart_puts("File: "); \
+            uart_puts(__FILE__); \
+            uart_puts("\r\nLine: "); \
+            uart_putdec(__LINE__); \
+            uart_puts("\r\n"); \
+            /* 死循环锁死，方便排查 */ \
             for (;;) ; \
         } \
     } while (0)
