@@ -263,23 +263,27 @@ void rpmsg_on_recv(uint32_t src, const void *payload, uint16_t len)
         uart_puts("\r\n");
     }
 
-    /* 优雅地打印收到的数据，不再无脑 echo 回发，打破 Ping-Pong 循环！ */
-    uart_puts("[RPMsg Rx] len=");
-    uart_putdec(len);
-    uart_puts(" data: ");
+    /* 打印收到的数据，不再无脑 echo 回发，打破 Ping-Pong 循环！ */
+    // uart_puts("[RPMsg Rx] len=");
+    // uart_putdec(len);
+    // uart_puts(" data: ");
     
-    /* 限制打印长度，防止 Linux 发来超长数据撑爆终端 */
-    int print_len = len < 64 ? len : 64; 
-    for (int i = 0; i < print_len; i++) {
-        char c = ((const char *)payload)[i];
-        /* 过滤不可见字符，防止终端乱码 */
-        if (c >= 32 && c <= 126) {
-            uart_putc(c);
-        } else {
-            uart_putc('.'); 
-        }
+    // /* 限制打印长度，防止 Linux 发来超长数据撑爆终端 */
+    // int print_len = len < 64 ? len : 64; 
+    // for (int i = 0; i < print_len; i++) {
+    //     char c = ((const char *)payload)[i];
+    //     /* 过滤不可见字符，防止终端乱码 */
+    //     if (c >= 32 && c <= 126) {
+    //         uart_putc(c);
+    //     } else {
+    //         uart_putc('.'); 
+    //     }
+    // }
+    // uart_puts("\r\n");
+    /* 2. 【性能压测模式】必须把包原样发回给 Linux，否则 Linux 算不出 RTT！ */
+    if (len > 0 && len <= RPMSG_PAYLOAD_MAX) {
+        rpmsg_send(src, payload, len);
     }
-    uart_puts("\r\n");
 }
 
 /* 处理一条来自 vq1 的消息 */

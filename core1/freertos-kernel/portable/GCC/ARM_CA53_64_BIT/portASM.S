@@ -44,6 +44,7 @@
     .global FreeRTOS_IRQ_Handler
     .global FreeRTOS_SWI_Handler
     .global vPortRestoreTaskContext
+    .global g_irq_asm_time
 
 
 .macro portSAVE_CONTEXT
@@ -300,6 +301,10 @@ FreeRTOS_IRQ_Handler:
     STP     X18, X19, [SP, #-0x10]!
     STP     X29, X30, [SP, #-0x10]!
 
+/* 【新增】第一时间抓取物理时间戳 */
+    MRS     X10, CNTPCT_EL0
+    LDR     X11, =g_irq_asm_time
+    STR     X10, [X11]
     /* Save the SPSR and ELR. */
 #if defined( GUEST )
     MRS     X3, SPSR_EL1

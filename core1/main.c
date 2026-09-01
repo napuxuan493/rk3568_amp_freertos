@@ -12,6 +12,15 @@
 
 void gic_init(void);
 
+uint64_t g_irq_asm_time = 0;
+static uint32_t max_mbox_latency = 0;
+
+static inline uint64_t get_cntpct(void) {
+    uint64_t val;
+    __asm volatile("mrs %0, cntpct_el0" : "=r"(val));
+    return val;
+}
+
 static inline uint64_t read_currentel(void)
 {
     uint64_t v;
@@ -144,9 +153,14 @@ static uint32_t irq_log_count;
 /* 定义任务句柄，供 ISR 唤醒时使用 */
 TaskHandle_t xRpmsgTaskHandle = NULL;
 
+
 void vApplicationIRQHandler(uint32_t ulICCIAR)
 {
+    uint64_t c_entry_time = get_cntpct();
     uint32_t intid = ulICCIAR & 0x3FFUL;
+    
+    /* 换算汇编到 C 的上下文切换耗时 (24MHz, ns) */
+    uint32_t latency_ns = (uint32_t)((c_entry_time - g_irq_asm_time) * 41);
 
     /* 定时器 PPI = INTID 30（CNTP，实测）。打印 1 次便于确认 */
     if (intid == 30) {
@@ -162,7 +176,20 @@ void vApplicationIRQHandler(uint32_t ulICCIAR)
 
 
     /* ── 2. 处理 Linux 发来的 Mailbox 门铃 ── */
-    else if (intid == 222) { /* Mailbox A2B_CH3 */
+    else if (intid == 222) { 
+        /* 统计门铃中断延迟 */
+        if (latency_ns > max_mbox_latency) max_mbox_latency = latency_ns;
+        
+        /* 每 1000 次打印一次，防止刷屏 */
+        static int irq_cnt = 0;
+        if (++irq_cnt % 1000 == 0) {
+            uart_puts("[IRQ 222] Latency: ");
+            uart_putdec(latency_ns);
+            uart_puts(" ns\r\n");
+        }
+        
+        
+        /* Mailbox A2B_CH3 */
         /* 1. 必须先清硬件挂起标志 (撤销高电平) */
         *(volatile uint32_t *)(0xFE780004) = (1u << MBOX_A2B_CHAN); 
 

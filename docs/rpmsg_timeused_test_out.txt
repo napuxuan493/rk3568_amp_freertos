@@ -1,0 +1,30 @@
+root@kickpi:~# dmesg | grep -A 1 "RPMsg RTT"
+[    8.268336] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 1000) ===
+[    8.268347] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 433773 ns
+--
+[    9.562985] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 2000) ===
+[    9.563000] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 362942 ns
+--
+[   10.858574] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 3000) ===
+[   10.858588] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 339414 ns
+--
+[   12.148524] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 4000) ===
+[   12.148539] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 326229 ns
+--
+[   13.466254] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 5000) ===
+[   13.466298] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 323591 ns
+--
+[   14.770600] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 6000) ===
+[   14.770639] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 319830 ns
+--
+[   16.052102] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 7000) ===
+[   16.052169] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 314090 ns
+--
+[   17.339890] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 8000) ===
+[   17.339940] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 310501 ns
+--
+[   18.618545] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 9000) ===
+[   18.618590] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 306719 ns
+--
+[   19.916889] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: === RPMsg RTT Stats (Count: 10000) ===
+[   19.916966] rockchip_rpmsg_test virtio0.rpmsg-ap3-ch0.-1.1: Min: 206208 ns  |  Max: 56239755 ns  |  Avg: 305645 ns
