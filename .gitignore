@@ -20,3 +20,7 @@ core1/loader/loader_static
 *~
 .DS_Store
 *.swp
+
+# ── RK3568 SDK 副本(25GB 完整依赖,刻意不纳入版本控制) ──
+# 说明见 core0/README.md;原始 SDK 在 /home/na/rk3586/linux/rk356x-linux-20251212/
+/core0/rk356x-linux/

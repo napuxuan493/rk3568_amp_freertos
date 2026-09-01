@@ -1,0 +1,244 @@
+
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2020 Rockchip Electronics Co., Ltd.
+ *
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/rockchip.h>
+#include <dt-bindings/display/rockchip_vop.h>
+#include "rk3568.dtsi"
+#include "rk3568-kickpi-evb.dtsi"
+#include "rk3568-amp.dtsi"
+
+// LCD
+#include "rk3568-kickpi-lcd-hdmi.dtsi"
+//#include "rk3568-kickpi-lcd-edp-15.6-1920-1080.dtsi"
+//#include "rk3568-kickpi-lcd-mipi0-10.1-800-1280.dtsi"
+//#include "rk3568-kickpi-lcd-mipi1-10.1-800-1280.dtsi"
+//#include "rk3568-kickpi-lcd-mipi0-10.1-800-1280-v2.dtsi"
+//#include "rk3568-kickpi-lcd-mipi1-10.1-800-1280-v2.dtsi"
+//#include "rk3568-kickpi-lcd-lvds0-7-1024-600.dtsi"
+//#include "rk3568-kickpi-lcd-lvds1-7-1024-600.dtsi"
+//#include "rk3568-kickpi-lcd-mipi0-5-720-1280.dtsi"
+//#include "rk3568-kickpi-lcd-mipi1-5-720-1280.dtsi"
+// #include "rk3568-kickpi-lcd-mipi0-8-800-1280.dtsi"
+// #include "rk3568-kickpi-lcd-mipi1-8-800-1280.dtsi"
+ 
+
+ 
+// Triple LCD
+//#include "rk3568-kickpi-triple-lcd-hdmi-mipi1-lvds.dtsi"
+//#include "rk3568-kickpi-triple-lcd-edp-mipi1-lvds.dtsi"
+// #include "rk3568-kickpi-dual-lcd-mipi0-mipi1.dtsi"
+
+// Network
+#include "rk3568-kickpi-eth-gmac0.dtsi"
+#include "rk3568-kickpi-eth-gmac1.dtsi"
+#include "rk3568-kickpi-wifibt.dtsi"
+
+// Camera
+#include "rk3568-kickpi-mipi-camera-gc5035.dtsi"
+
+// Other
+#include "rk3568-kickpi-usb.dtsi"
+#include "rk3568-kickpi-ir.dtsi"
+#include "rk3568-kickpi-sata.dtsi"
+#include "rk3568-kickpi-pcie.dtsi"
+#include "rk3568-kickpi-extend-40pin.dtsi"
+
+
+/ {
+	model = "Rockchip RK3568 KICKPI K1A Board";
+	compatible = "rockchip,rk3568-kickpi-k1a", "rockchip,rk3568";
+	
+	
+		/* 这是一个自定义的 GPIO 按键/中断节点 */
+		    my_test_key {
+			/* 这里的字符串必须和 C 代码里的 of_match_table 100% 对应！ */
+			compatible = "kickpi,my-key";
+			
+			/* 
+			 * 这里定义了具体的物理引脚。
+			 * 假设你把外设/按键接在了 GPIO3 的 B5 引脚上。
+			 * GPIO_ACTIVE_LOW 表示低电平有效（如果你是高电平触发，改为 GPIO_ACTIVE_HIGH）
+			 */
+			gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
+			
+			/* 申明这个引脚隶属于哪个中断控制器（即 GPIO3 本身作为级联中断控制器） */
+			interrupt-parent = <&gpio3>;
+			
+			/* 
+			 * 配置中断触发方式。
+			 * RK_PB5 代表引脚号。
+			 * IRQ_TYPE_EDGE_FALLING 代表下降沿触发。
+			 * (也可以用 IRQ_TYPE_EDGE_RISING, IRQ_TYPE_EDGE_BOTH 等)
+			 */
+			interrupts = <RK_PB5 IRQ_TYPE_EDGE_FALLING>;
+			
+			/* 设置引脚复用状态，确保这个引脚被配置为 GPIO 模式，而不是被复用成了 UART/SPI 等 */
+			pinctrl-names = "default";
+			pinctrl-0 = <&my_key_pin_cfg>;
+		    };
+
+    
+	vcc2v5_sys: vcc2v5-ddr {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc2v5-sys";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		vin-supply = <&vcc3v3_sys>;
+	};
+
+	vcc3v3_bu: vcc3v3-bu {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3_bu";
+		regulator-always-on;
+		regulator-boot-on;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&vcc5v0_sys>;
+	};
+/*
+	fan0: gpio-fan {
+		#cooling-cells = <2>;
+		compatible = "gpio-fan";
+		gpio-fan,speed-map = <0 0 
+								3000 1>;
+		gpios = <&gpio0 RK_PD6 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+	*/
+};
+
+&leds {
+    fan {
+        gpios = <&gpio0 RK_PD6 GPIO_ACTIVE_HIGH>;
+        default-state = "on";
+    };
+};
+
+&rk809_sound {
+	spk-det-gpio = <&gpio4 RK_PC6 GPIO_ACTIVE_LOW>;
+	hp-det-gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&hp_det>;
+	hp-volume = <20>;
+	spk-volume = <30>;
+};
+
+&i2c5 {
+	status = "okay";
+
+	hym8563: hym8563@51 {
+		compatible = "haoyu,hym8563";
+		reg = <0x51>;
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		clock-output-names = "hym8563";
+		// IRQ GPIO IS MODIFYED FOR UPDATE HYM8562 DRIVER 
+		rtc-irq-gpio = <&gpio0 RK_PD3 IRQ_TYPE_EDGE_FALLING>;
+	};
+	
+};
+
+/* 启用 I2C3 通道 */
+&i2c3 {
+    status = "okay";
+    clock-frequency = <400000>; /* 配置为 400kHz 快速模式 */
+
+    /* 在 I2C3 总线下挂载 MPU6050 设备 */
+    mpu6050_dev: mpu6050@68 {
+        /* 此处的 compatible 必须与我们驱动 C 代码中 of_match_table 保持一致 */
+        compatible = "kickpi,mpu6050";
+        
+        /* 物理 I2C 地址，因为 AD0 接地，所以是 0x68 */
+        reg = <0x68>; 
+
+        /* ================= 中断配置 ================= */
+        /* 指定中断挂载的父节点：我们选的是 GPIO1_B0，属于 gpio1 组 */
+        interrupt-parent = <&gpio1>;
+        
+        /* 
+         * 配置具体的引脚和触发方式:
+         * RK_PB0 对应物理图上的 GPIO1_B0
+         * IRQ_TYPE_EDGE_RISING 表示上升沿触发 (MPU6050 默认中断引脚为推挽输出，高电平有效)
+         */
+        interrupts = <RK_PB0 IRQ_TYPE_EDGE_RISING>;
+        
+        /* (可选) 配置引脚默认的 pinctrl 状态，防止被复用为其他功能 */
+        pinctrl-names = "default";
+        pinctrl-0 = <&mpu6050_int_pin>;
+    };
+};
+ 
+/* 启用 SPI3 硬件控制器 */
+&spi3 {
+    status = "okay";
+    
+    /* 关键：告诉控制器，我们要用哪个引脚作为片选 (CS) */
+    cs-gpios = <&gpio3 RK_PB6 GPIO_ACTIVE_LOW>; 
+
+    oled: ssd1306@0 {
+        compatible = "kickpi,ssd1306";
+        /* reg = <0> 代表它绑定在 cs-gpios 数组的第 0 个引脚上 */
+        reg = <0>; 
+        
+        /* 🚀 速度全开：10MHz。如果你保留了 4.7k 电阻，请降到 1000000 (1MHz) */
+        spi-max-frequency = <10000000>; 
+        
+        /* 声明我们选用的两个独立控制引脚 */
+        dc-gpios = <&gpio0 RK_PC0 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
+    };
+};
+
+/* ==========================================================
+ * 启用 CAN2 硬件控制器 (Rockchip CAN-FD)
+ * 使用 M1 组引脚: RX -> GPIO4_B4, TX -> GPIO4_B5
+ * ========================================================== */
+&can2 {
+    status = "okay";
+    
+    /* 引用内核自带的 pinctrl 配置，强制将这两个 GPIO 切换为 CAN 硬件收发模式 */
+    pinctrl-names = "default";
+    pinctrl-0 = <&can2m0_pins>; 
+    
+    /* 
+     * 可选：如果你后续遇到波特率设置不准的问题，可以解开下面两行的注释。
+     * 这会强制给 CAN 控制器分配 200MHz 的高精度基础时钟，以支持 CAN-FD 高速通信。
+     */
+    // assigned-clocks = <&cru CLK_CAN2>;
+    // assigned-clock-rates = <200000000>;
+};
+
+&pinctrl {
+	headphone {
+		hp_det: hp-det {
+			rockchip,pins = <1 RK_PD3 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+	
+	 kickpi_custom {
+		my_key_pin_cfg: my-key-pin-cfg {
+		    /* 
+		     * 将 GPIO3_PB5 配置为默认下拉 (或者上拉 rockchip,pull-up)。
+		     * 根据你的外部电路决定。如果是接地触发（按键），通常设为上拉。
+		     */
+		    rockchip,pins = <3 RK_PB5 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+	mpu6050 {
+        	mpu6050_int_pin: mpu6050-int-pin {
+           	 /* 将 GPIO1_B0 配置为默认输入，并下拉，防止悬空时产生伪中断 */
+            	rockchip,pins = <1 RK_PB0 RK_FUNC_GPIO &pcfg_pull_down>;
+        	};
+    	};
+
+
+};

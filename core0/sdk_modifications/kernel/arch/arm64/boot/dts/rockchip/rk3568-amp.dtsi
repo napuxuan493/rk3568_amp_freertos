@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2023 Rockchip Electronics Co., Ltd.
+ */
+
+/* ★ M2.1 关键修复（2026-08-21）：
+ * 把 cpu3 从 Linux SMP 中排除——AMP 核必须"从未被 Linux 启动过"，
+ * 它的首次启动要走 AMP 路径。否则 OP-TEE 的 secondary 重启动
+ * 路径（热插拔）在这块板子上失败，导致所有 CPU_ON 都拉起失败。 */
+&cpu3 {
+	status = "disabled";
+};
+
+/ {
+	rockchip_amp: rockchip-amp {
+		compatible = "rockchip,rk3568-amp";
+		clocks = <&cru SCLK_UART4>, <&cru PCLK_UART4>,
+			 <&cru PCLK_TIMER>, <&cru CLK_TIMER4>, <&cru CLK_TIMER5>,
+			 <&cru ACLK_MCU>;
+
+		/* pinctrl 移除：uart4m1_xfer 由板级 uart4（Linux 8250）持有，
+		 * 否则引脚冲突导致 uart4 probe 失败（M2.1 修复，2026-08-20）
+		 * amp-cpus 节点移除（2026-08-21）：u-boot 的 amp 流程会读它把
+		 * core3 标记为 os-dispatcher 所有而跳过启动；官方流程改为 u-boot
+		 * 从 "amp" 分区加载 FIT 并直接启动 core3，Linux 侧不再 echo on */
+		status = "okay";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		/* 新增：core1 固件区（官方模板没有，因为官方 entry 在 0x2800000） */
+    		core1_fw_reserved: core1-fw@7000000 {
+       		 	reg = <0x0 0x7000000 0x0 0x100000>;   /* 1MB */
+        		no-map;
+    		};
+		/* remote amp core address */
+		amp_shmem_reserved: amp-shmem@7800000 {
+			reg = <0x0 0x7800000 0x0 0x400000>;
+			no-map;
+		};
+
+		rpmsg_reserved: rpmsg@7c00000 {
+			reg = <0x0 0x7c00000 0x0 0x400000>;
+			no-map;
+		};
+
+		rpmsg_dma_reserved: rpmsg-dma@8000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x8000000 0x0 0x100000>;
+			no-map;
+		};
+
+		/* mcu address */
+		mcu_reserved: mcu@8200000 {
+			reg = <0x0 0x8200000 0x0 0x100000>;
+			no-map;
+		};
+	};
+
+	rpmsg: rpmsg@7c00000 {
+		compatible = "rockchip,rpmsg";
+		mbox-names = "rpmsg-rx", "rpmsg-tx";
+		mboxes = <&mailbox 0 &mailbox 3>;
+		rockchip,vdev-nums = <1>;
+		rockchip,link-id = <0x03>;
+		reg = <0x0 0x7c00000 0x0 0x20000>;
+		memory-region = <&rpmsg_dma_reserved>;
+
+		status = "okay";
+	};
+};
+
+&mailbox {
+	rockchip,txpoll-period-ms = <1>;
+	status = "okay";
+};
+

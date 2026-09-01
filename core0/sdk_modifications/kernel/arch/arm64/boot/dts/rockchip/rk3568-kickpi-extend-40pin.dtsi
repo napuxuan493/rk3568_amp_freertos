@@ -1,0 +1,91 @@
+
+
+&leds {
+    gpio1a4 {
+        gpios = <&gpio1 RK_PA4 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio1b0 {
+        gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio1b1 {
+        gpios = <&gpio1 RK_PB1 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio1b2 {
+        gpios = <&gpio1 RK_PB2 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio4c4 {
+        gpios = <&gpio4 RK_PC4 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio3b6 {
+        gpios = <&gpio3 RK_PB6 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio1d0 {
+        gpios = <&gpio1 RK_PD0 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio1d4 {
+        gpios = <&gpio1 RK_PD4 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+    gpio3b5 {
+        gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_HIGH>;
+        default-state = "off";
+    };
+};
+
+
+&pwm3 {
+    status = "okay";
+};
+
+&spi3 {
+    status = "okay";
+    pinctrl-names = "default", "high_speed";
+    pinctrl-0 = <&spi3m1_pins>;
+    pinctrl-1 = <&spi3m1_pins_hs>;
+};
+
+&i2c3 {
+    status = "disabled";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c3m0_xfer>;
+};
+
+&i2c2 {
+    status = "disabled";
+    pinctrl-names = "default";
+    pinctrl-0 = <&i2c2m1_xfer>;
+};
+
+&uart0 {
+    status = "disabled";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart0_xfer>;
+};
+
+&uart3 {
+    status = "disabled";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart3m1_xfer>;
+};
+
+&uart4 {
+    /* M2.2 正式方案（2026-08-24）：UART4 释放给 core1（AMP RTOS）独占。
+     * 原 status="okay" 会让 Linux 8250 占用 UART4 外设 + uart4m1 引脚，
+     * 与 core1 冲突；core1 在 u-boot 阶段自行初始化（CRU 时钟 + IOC 引脚 + 波特率）。 */
+    status = "disabled";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart4m1_xfer>;
+};
+
+&uart7 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart7m1_xfer>;
+};
