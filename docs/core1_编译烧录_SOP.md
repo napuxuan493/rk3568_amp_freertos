@@ -58,6 +58,9 @@ stty -F /dev/ttyUSB0 1500000 raw -echo
 read_console() { timeout 20 cat /dev/ttyUSB0 > /tmp/c.txt & local pid=$!; sleep 1
   printf '\n%s\n' "$1" > /dev/ttyUSB0; sleep 18; kill $pid 2>/dev/null; cat /tmp/c.txt; }
 read_console 'wget -q -T 8 http://10.164.40.19:8000/amp.img -O /tmp/amp.img && md5sum /tmp/amp.img && dd if=/tmp/amp.img of=/dev/mmcblk0p7 bs=512 conv=fsync 2>&1 | tail -1 && sync && echo FLASH_OK'
+
+ wget -q -T 30 http://10.164.40.210:8000/amp.img -O /tmp/amp.img; dd if=/tmp/amp.img of=/dev/mmcblk0p7 bs=512 conv=fsync; sync; reboot
+
 ```
 
 ## 四、重启验证

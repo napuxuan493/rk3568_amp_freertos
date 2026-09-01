@@ -40,10 +40,11 @@ static void vTask1(void *pvParameters)
         if (rpmsg_ready && rpmsg_have_linux_ept()) {
             char msg[64];
             int i;
-            const char prefix[] = "Active msg from FreeRTOS: ";
+            /* 【修改】这里变成指针，指向只读数据段，不要让编译器自动拷贝整个数组！ */
+            const char *prefix = "Active msg from FreeRTOS: ";
             
-            /* 简单组装一个字符串，不使用耗时的 sprintf */
-            for (i = 0; i < (int)(sizeof(prefix) - 1); i++) {
+            /* 强制逐字节拷贝，LDRB指令对内存对齐免疫，完美兼容裸机无MMU状态！ */
+            for (i = 0; prefix[i] != '\0'; i++) {
                 msg[i] = prefix[i];
             }
             msg[i++] = 'A' + (active_tx_count % 26); /* 附加一个变化字母 */
